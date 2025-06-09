@@ -1,8 +1,3 @@
-; Airport Ticketing and Complaint System
-; Using Irvine32 Library
-; Author: Assembly Developer
-; File: FlightTicket&Complaint.asm
-
 INCLUDE Irvine32.inc
 INCLUDELIB Irvine32.lib
 
@@ -104,6 +99,7 @@ INCLUDELIB Irvine32.lib
     msgInvalidChoice    BYTE "Invalid choice! Please try again.", 0dh, 0ah, 0
     msgPressEnter       BYTE "Press Enter to continue...", 0
     msgComplaintUpdated BYTE "Complaint response added successfully!", 0dh, 0ah, 0
+    msgFileError        BYTE "Error accessing file!", 0dh, 0ah, 0
     
     ; Headers
     headerFlights       BYTE "Flight# | Airline     | Source      | Destination | Date       | Time  | Price | Seats", 0dh, 0ah
@@ -130,10 +126,23 @@ INCLUDELIB Irvine32.lib
     dollar              BYTE "$", 0
     statusPending       BYTE "Pending", 0
     statusResolved      BYTE "Resolved", 0
+    
+    ; File handling variables
+    flightsFile         BYTE "flights.dat", 0
+    ticketsFile         BYTE "tickets.dat", 0
+    complaintsFile      BYTE "complaints.dat", 0
+    fileHandle          HANDLE ?
+    bytesWritten        DWORD ?
+    bytesRead           DWORD ?
 
 .code
 main PROC
     call Clrscr
+    
+    ; Load data from files at startup
+    call loadFlightsFromFile
+    call loadTicketsFromFile
+    call loadComplaintsFromFile
     
 MainLoop:
     call ShowMainMenu
@@ -195,10 +204,563 @@ SearchTicket:
     jmp MainLoop
 
 ExitProgram:
+    ; Save data to files before exiting
+    call saveFlightsToFile
+    call saveTicketsToFile
+    call saveComplaintsToFile
     exit
 main ENDP
 
-; Show main menu
+; Save flights to file
+saveFlightsToFile PROC
+    push eax
+    push edx
+    push ecx
+    
+    ; Open file for writing
+    mov edx, OFFSET flightsFile
+    call CreateOutputFile
+    cmp eax, -1
+    je FileError
+    mov fileHandle, eax
+    
+    ; Write flightCount (DWORD)
+    mov eax, fileHandle
+    mov edx, OFFSET flightCount
+    mov ecx, 4
+    call WriteToFile
+    
+    ; Write flightNumbers
+    mov eax, fileHandle
+    mov edx, OFFSET flightNumbers
+    mov ecx, MAX_FLIGHTS * 10
+    call WriteToFile
+    
+    ; Write airlines
+    mov eax, fileHandle
+    mov edx, OFFSET airlines
+    mov ecx, MAX_FLIGHTS * 20
+    call WriteToFile
+    
+    ; Write sources
+    mov eax, fileHandle
+    mov edx, OFFSET sources
+    mov ecx, MAX_FLIGHTS * 20
+    call WriteToFile
+    
+    ; Write destinations
+    mov eax, fileHandle
+    mov edx, OFFSET destinations
+    mov ecx, MAX_FLIGHTS * 20
+    call WriteToFile
+    
+    ; Write departureTimes
+    mov eax, fileHandle
+    mov edx, OFFSET departureTimes
+    mov ecx, MAX_FLIGHTS * 10
+    call WriteToFile
+    
+    ; Write arrivalTimes
+    mov eax, fileHandle
+    mov edx, OFFSET arrivalTimes
+    mov ecx, MAX_FLIGHTS * 10
+    call WriteToFile
+    
+    ; Write flightDates
+    mov eax, fileHandle
+    mov edx, OFFSET flightDates
+    mov ecx, MAX_FLIGHTS * 12
+    call WriteToFile
+    
+    ; Write flightPrices
+    mov eax, fileHandle
+    mov edx, OFFSET flightPrices
+    mov ecx, MAX_FLIGHTS * 4
+    call WriteToFile
+    
+    ; Write totalSeats
+    mov eax, fileHandle
+    mov edx, OFFSET totalSeats
+    mov ecx, MAX_FLIGHTS * 4
+    call WriteToFile
+    
+    ; Write availableSeats
+    mov eax, fileHandle
+    mov edx, OFFSET availableSeats
+    mov ecx, MAX_FLIGHTS * 4
+    call WriteToFile
+    
+    ; Write flightActive
+    mov eax, fileHandle
+    mov edx, OFFSET flightActive
+   mov ecx, MAX_FLIGHTS
+    call WriteToFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    
+    jmp SaveFlightsEnd
+
+FileError:
+    mov edx, OFFSET msgFileError
+    call WriteString
+    call MyWaitMsg
+
+SaveFlightsEnd:
+    pop ecx
+    pop edx
+    pop eax
+    ret
+saveFlightsToFile ENDP
+
+; Load flights from file
+loadFlightsFromFile PROC
+    push eax
+    push edx
+    push ecx
+    push edi
+    
+    ; Open file for reading
+    mov edx, OFFSET flightsFile
+    call OpenInputFile
+    cmp eax, -1
+    je InitializeEmptyFlights
+    mov fileHandle, eax
+    
+    ; Read flightCount
+    mov eax, fileHandle
+    mov edx, OFFSET flightCount
+    mov ecx, 4
+    call ReadFromFile
+    
+    ; Read flightNumbers
+    mov eax, fileHandle
+    mov edx, OFFSET flightNumbers
+    mov ecx, MAX_FLIGHTS * 10
+    call ReadFromFile
+    
+    ; Read airlines
+    mov eax, fileHandle
+    mov edx, OFFSET airlines
+    mov ecx, MAX_FLIGHTS * 20
+    call ReadFromFile
+    
+    ; Read sources
+    mov eax, fileHandle
+    mov edx, OFFSET sources
+    mov ecx, MAX_FLIGHTS * 20
+    call ReadFromFile
+    
+    ; Read destinations
+    mov eax, fileHandle
+    mov edx, OFFSET destinations
+    mov ecx, MAX_FLIGHTS * 20
+    call ReadFromFile
+    
+    ; Read departureTimes
+    mov eax, fileHandle
+    mov edx, OFFSET departureTimes
+    mov ecx, MAX_FLIGHTS * 10
+    call ReadFromFile
+    
+    ; Read arrivalTimes
+    mov eax, fileHandle
+    mov edx, OFFSET arrivalTimes
+    mov ecx, MAX_FLIGHTS * 10
+    call ReadFromFile
+    
+    ; Read flightDates
+    mov eax, fileHandle
+    mov edx, OFFSET flightDates
+    mov ecx, MAX_FLIGHTS * 12
+    call ReadFromFile
+    
+    ; Read flightPrices
+    mov eax, fileHandle
+    mov edx, OFFSET flightPrices
+    mov ecx, MAX_FLIGHTS * 4
+    call ReadFromFile
+    
+    ; Read totalSeats
+    mov eax, fileHandle
+    mov edx, OFFSET totalSeats
+    mov ecx, MAX_FLIGHTS * 4
+    call ReadFromFile
+    
+    ; Read availableSeats
+    mov eax, fileHandle
+    mov edx, OFFSET availableSeats
+    mov ecx, MAX_FLIGHTS * 4
+    call ReadFromFile
+    
+    ; Read flightActive
+    mov eax, fileHandle
+    mov edx, OFFSET flightActive
+    mov ecx, MAX_FLIGHTS
+    call ReadFromFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    jmp LoadFlightsEnd
+
+InitializeEmptyFlights:
+    ; Initialize flight data to empty
+    mov flightCount, 0
+    mov ecx, MAX_FLIGHTS
+    mov edi, OFFSET flightActive
+    xor al, al
+    rep stosb ; Clear flightActive array
+    ; Other arrays are not cleared as they’ll be overwritten when adding flights
+
+LoadFlightsEnd:
+    pop edi
+    pop ecx
+    pop edx
+    pop eax
+    ret
+loadFlightsFromFile ENDP
+
+; Save tickets to file
+saveTicketsToFile PROC
+    push eax
+    push edx
+    push ecx
+    
+    ; Open file for writing
+    mov edx, OFFSET ticketsFile
+    call CreateOutputFile
+    cmp eax, -1
+    je FileError
+    mov fileHandle, eax
+    
+    ; Write ticketCount
+    mov eax, fileHandle
+    mov edx, OFFSET ticketCount
+    mov ecx, 4
+    call WriteToFile
+    
+    ; Write nextTicketID
+    mov eax, fileHandle
+    mov edx, OFFSET nextTicketID
+    mov ecx, 4
+    call WriteToFile
+    
+    ; Write ticketIDs
+    mov eax, fileHandle
+    mov edx, OFFSET ticketIDs
+    mov ecx, MAX_TICKETS * 4
+    call WriteToFile
+    
+    ; Write ticketFlightNums
+    mov eax, fileHandle
+    mov edx, OFFSET ticketFlightNums
+    mov ecx, MAX_TICKETS * 10
+    call WriteToFile
+    
+    ; Write customerNames
+    mov eax, fileHandle
+    mov edx, OFFSET customerNames
+    mov ecx, MAX_TICKETS * 30
+    call WriteToFile
+    
+    ; Write customerPhones
+    mov eax, fileHandle
+    mov edx, OFFSET customerPhones
+    mov ecx, MAX_TICKETS * 15
+    call WriteToFile
+    
+    ; Write customerEmails
+    mov eax, fileHandle
+    mov edx, OFFSET customerEmails
+    mov ecx, MAX_TICKETS * 50
+    call WriteToFile
+    
+    ; Write ticketPrices
+    mov eax, fileHandle
+    mov edx, OFFSET ticketPrices
+    mov ecx, MAX_TICKETS * 4
+    call WriteToFile
+    
+    ; Write ticketActive
+    mov eax, fileHandle
+    mov edx, OFFSET ticketActive
+    mov ecx, MAX_TICKETS
+    call WriteToFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    
+    jmp SaveTicketsEnd
+
+FileError:
+    mov edx, OFFSET msgFileError
+    call WriteString
+    call MyWaitMsg
+
+SaveTicketsEnd:
+    pop ecx
+    pop edx
+    pop eax
+    ret
+saveTicketsToFile ENDP
+
+; Load tickets from file
+loadTicketsFromFile PROC
+    push eax
+    push edx
+    push ecx
+    push edi
+    
+    ; Open file for reading
+    mov edx, OFFSET ticketsFile
+    call OpenInputFile
+    cmp eax, -1
+    je InitializeEmptyTickets
+    mov fileHandle, eax
+    
+    ; Read ticketCount
+    mov eax, fileHandle
+    mov edx, OFFSET ticketCount
+    mov ecx, 4
+    call ReadFromFile
+    
+    ; Read nextTicketID
+    mov eax, fileHandle
+    mov edx, OFFSET nextTicketID
+    mov ecx, 4
+    call ReadFromFile
+    
+    ; Read ticketIDs
+    mov eax, fileHandle
+    mov edx, OFFSET ticketIDs
+    mov ecx, MAX_TICKETS * 4
+    call ReadFromFile
+    
+    ; Read ticketFlightNums
+    mov eax, fileHandle
+    mov edx, OFFSET ticketFlightNums
+    mov ecx, MAX_TICKETS * 10
+    call ReadFromFile
+    
+    ; Read customerNames
+    mov eax, fileHandle
+    mov edx, OFFSET customerNames
+    mov ecx, MAX_TICKETS * 30
+    call ReadFromFile
+    
+    ; Read customerPhones
+    mov eax, fileHandle
+    mov edx, OFFSET customerPhones
+    mov ecx, MAX_TICKETS * 15
+    call ReadFromFile
+    
+    ; Read customerEmails
+    mov eax, fileHandle
+    mov edx, OFFSET customerEmails
+    mov ecx, MAX_TICKETS * 50
+    call ReadFromFile
+    
+    ; Read ticketPrices
+    mov eax, fileHandle
+    mov edx, OFFSET ticketPrices
+    mov ecx, MAX_TICKETS * 4
+    call ReadFromFile
+    
+    ; Read ticketActive
+    mov eax, fileHandle
+    mov edx, OFFSET ticketActive
+    mov ecx, MAX_TICKETS
+    call ReadFromFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    jmp LoadTicketsEnd
+
+InitializeEmptyTickets:
+    ; Initialize ticket data to empty
+    mov ticketCount, 0
+    mov nextTicketID, 1001
+    mov ecx, MAX_TICKETS
+    mov edi, OFFSET ticketActive
+    xor al, al
+    rep stosb ; Clear ticketActive array
+
+LoadTicketsEnd:
+    pop edi
+    pop ecx
+    pop edx
+    pop eax
+    ret
+loadTicketsFromFile ENDP
+
+; Save complaints to file
+saveComplaintsToFile PROC
+    push eax
+    push edx
+    push ecx
+    
+    ; Open file for writing
+    mov edx, OFFSET complaintsFile
+    call CreateOutputFile
+    cmp eax, -1
+    je FileError
+    mov fileHandle, eax
+    
+    ; Write complaintCount
+    mov eax, fileHandle
+    mov edx, OFFSET complaintCount
+    mov ecx, 4
+    call WriteToFile
+    
+    ; Write nextComplaintID
+    mov eax, fileHandle
+    mov edx, OFFSET nextComplaintID
+    mov ecx, 4
+    call WriteToFile
+    
+    ; Write complaintIDs
+    mov eax, fileHandle
+    mov edx, OFFSET complaintIDs
+    mov ecx, MAX_COMPLAINTS * 4
+    call WriteToFile
+    
+    ; Write complaintCategories
+    mov eax, fileHandle
+    mov edx, OFFSET complaintCategories
+    mov ecx, MAX_COMPLAINTS * 20
+    call WriteToFile
+    
+    ; Write complaintNames
+    mov eax, fileHandle
+    mov edx, OFFSET complaintNames
+    mov ecx, MAX_COMPLAINTS * 30
+    call WriteToFile
+    
+    ; Write complaintDetails
+    mov eax, fileHandle
+    mov edx, OFFSET complaintDetails
+    mov ecx, MAX_COMPLAINTS * 200
+    call WriteToFile
+    
+    ; Write complaintResponses
+    mov eax, fileHandle
+    mov edx, OFFSET complaintResponses
+    mov ecx, MAX_COMPLAINTS * 200
+    call WriteToFile
+    
+    ; Write complaintStatus
+    mov eax, fileHandle
+    mov edx, OFFSET complaintStatus
+    mov ecx, MAX_COMPLAINTS
+    call WriteToFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    
+    jmp SaveComplaintsEnd
+
+FileError:
+    mov edx, OFFSET msgFileError
+    call WriteString
+    call MyWaitMsg
+
+SaveComplaintsEnd:
+    pop ecx
+    pop edx
+    pop eax
+    ret
+saveComplaintsToFile ENDP
+
+; Load complaints from file
+loadComplaintsFromFile PROC
+    push eax
+    push edx
+    push ecx
+    push edi
+    
+    ; Open file for reading
+    mov edx, OFFSET complaintsFile
+    call OpenInputFile
+    cmp eax, -1
+    je InitializeEmptyComplaints
+    mov fileHandle, eax
+    
+    ; Read complaintCount
+    mov eax, fileHandle
+    mov edx, OFFSET complaintCount
+    mov ecx, 4
+    call ReadFromFile
+    
+    ; Read nextComplaintID
+    mov eax, fileHandle
+    mov edx, OFFSET nextComplaintID
+    mov ecx, 4
+    call ReadFromFile
+    
+    ; Read complaintIDs
+    mov eax, fileHandle
+    mov edx, OFFSET complaintIDs
+    mov ecx, MAX_COMPLAINTS * 4
+    call ReadFromFile
+    
+    ; Read complaintCategories
+    mov eax, fileHandle
+    mov edx, OFFSET complaintCategories
+    mov ecx, MAX_COMPLAINTS * 20
+    call ReadFromFile
+    
+    ; Read complaintNames
+    mov eax, fileHandle
+    mov edx, OFFSET complaintNames
+    mov ecx, MAX_COMPLAINTS * 30
+    call ReadFromFile
+    
+    ; Read complaintDetails
+    mov eax, fileHandle
+    mov edx, OFFSET complaintDetails
+    mov ecx, MAX_COMPLAINTS * 200
+    call ReadFromFile
+    
+    ; Read complaintResponses
+    mov eax, fileHandle
+    mov edx, OFFSET complaintResponses
+    mov ecx, MAX_COMPLAINTS * 200
+    call ReadFromFile
+    
+    ; Read complaintStatus
+    mov eax, fileHandle
+    mov edx, OFFSET complaintStatus
+    mov ecx, MAX_COMPLAINTS
+    call ReadFromFile
+    
+    ; Close file
+    mov eax, fileHandle
+    call CloseFile
+    jmp LoadComplaintsEnd
+
+InitializeEmptyComplaints:
+    ; Initialize complaint data to empty
+    mov complaintCount, 0
+    mov nextComplaintID, 5001
+    mov ecx, MAX_COMPLAINTS
+    mov edi, OFFSET complaintStatus
+    xor al, al
+    rep stosb ; Clear complaintStatus array
+
+LoadComplaintsEnd:
+    pop edi
+    pop ecx
+    pop edx
+    pop eax
+    ret
+loadComplaintsFromFile ENDP
+
+; Existing procedures (unchanged, included for completeness)
 ShowMainMenu PROC
     call Clrscr
     mov edx, OFFSET mainMenuTitle
@@ -208,7 +770,6 @@ ShowMainMenu PROC
     ret
 ShowMainMenu ENDP
 
-; Check admin password
 CheckAdminPassword PROC
     mov edx, OFFSET promptPassword
     call WriteString
@@ -216,7 +777,6 @@ CheckAdminPassword PROC
     mov ecx, SIZEOF inputPassword
     call ReadString
     
-    ; Compare passwords
     mov esi, OFFSET inputPassword
     mov edi, OFFSET adminPassword
     mov ecx, 8
@@ -234,7 +794,6 @@ PasswordCorrect:
     ret
 CheckAdminPassword ENDP
 
-; Show admin menu
 ShowAdminMenu PROC
 AdminMenuLoop:
     call Clrscr
@@ -292,7 +851,6 @@ AdminMenuExit:
     ret
 ShowAdminMenu ENDP
 
-; Add new flight
 AddNewFlight PROC
     push eax
     push ebx
@@ -301,7 +859,6 @@ AddNewFlight PROC
     push esi
     push edi
     
-    ; Check if we can add more flights
     mov eax, flightCount
     cmp eax, MAX_FLIGHTS
     jae FlightLimitReached
@@ -310,7 +867,6 @@ AddNewFlight PROC
     mov edx, OFFSET promptFlightNum
     call WriteString
     
-    ; Calculate offset for new flight
     mov eax, flightCount
     mov ebx, 10
     mul ebx
@@ -321,7 +877,6 @@ AddNewFlight PROC
     mov ecx, 10
     call ReadString
     
-    ; Add airline
     mov edx, OFFSET promptAirline
     call WriteString
     mov eax, flightCount
@@ -333,7 +888,6 @@ AddNewFlight PROC
     mov ecx, 20
     call ReadString
     
-    ; Add source
     mov edx, OFFSET promptSource
     call WriteString
     mov eax, flightCount
@@ -345,7 +899,6 @@ AddNewFlight PROC
     mov ecx, 20
     call ReadString
     
-    ; Add destination
     mov edx, OFFSET promptDestination
     call WriteString
     mov eax, flightCount
@@ -357,7 +910,6 @@ AddNewFlight PROC
     mov ecx, 20
     call ReadString
     
-    ; Add departure time
     mov edx, OFFSET promptDepartTime
     call WriteString
     mov eax, flightCount
@@ -369,7 +921,6 @@ AddNewFlight PROC
     mov ecx, 10
     call ReadString
     
-    ; Add arrival time
     mov edx, OFFSET promptArriveTime
     call WriteString
     mov eax, flightCount
@@ -381,7 +932,6 @@ AddNewFlight PROC
     mov ecx, 10
     call ReadString
     
-    ; Add date
     mov edx, OFFSET promptDate
     call WriteString
     mov eax, flightCount
@@ -393,14 +943,12 @@ AddNewFlight PROC
     mov ecx, 12
     call ReadString
     
-    ; Add price
     mov edx, OFFSET promptPrice
     call WriteString
     call ReadDec
     mov ebx, flightCount
     mov flightPrices[ebx*4], eax
     
-    ; Add seats
     mov edx, OFFSET promptSeats
     call WriteString
     call ReadDec
@@ -408,11 +956,9 @@ AddNewFlight PROC
     mov totalSeats[ebx*4], eax
     mov availableSeats[ebx*4], eax
     
-    ; Set flight as active
     mov ebx, flightCount
     mov flightActive[ebx], 1
     
-    ; Increment flight count
     inc flightCount
     
     mov edx, OFFSET msgFlightAdded
@@ -435,7 +981,6 @@ AddFlightEnd:
     ret
 AddNewFlight ENDP
 
-; Display all flights
 DisplayAllFlights PROC
     push eax
     push ebx
@@ -454,11 +999,9 @@ DisplayAllFlights PROC
     mov esi, 0
     
 DisplayFlightLoop:
-    ; Check if flight is active
     cmp flightActive[esi], 1
     jne SkipFlight
     
-    ; Display flight number
     mov eax, esi
     mov ebx, 10
     mul ebx
@@ -468,7 +1011,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display airline
     mov eax, esi
     mov ebx, 20
     mul ebx
@@ -478,7 +1020,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display source
     mov eax, esi
     mov ebx, 20
     mul ebx
@@ -488,7 +1029,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display destination
     mov eax, esi
     mov ebx, 20
     mul ebx
@@ -498,7 +1038,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display date
     mov eax, esi
     mov ebx, 12
     mul ebx
@@ -508,7 +1047,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display departure time
     mov eax, esi
     mov ebx, 10
     mul ebx
@@ -518,7 +1056,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display price
     mov edx, OFFSET dollar
     call WriteString
     mov eax, flightPrices[esi*4]
@@ -526,7 +1063,6 @@ DisplayFlightLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display available seats
     mov eax, availableSeats[esi*4]
     call WriteDec
     mov edx, OFFSET newline
@@ -554,7 +1090,6 @@ DisplayFlightsEnd:
     ret
 DisplayAllFlights ENDP
 
-; Display available flights for booking
 DisplayAvailableFlights PROC
     push eax
     push ebx
@@ -573,13 +1108,11 @@ DisplayAvailableFlights PROC
     mov esi, 0
     
 DisplayAvailableLoop:
-    ; Check if flight is active and has seats
     cmp flightActive[esi], 1
     jne SkipAvailableFlight
     cmp availableSeats[esi*4], 0
     je SkipAvailableFlight
     
-    ; Display flight details (same as DisplayAllFlights)
     mov eax, esi
     mov ebx, 10
     mul ebx
@@ -668,7 +1201,6 @@ DisplayAvailableEnd:
     ret
 DisplayAvailableFlights ENDP
 
-; Book a flight ticket
 BookFlightTicket PROC
     push eax
     push ebx
@@ -677,35 +1209,28 @@ BookFlightTicket PROC
     push esi
     push edi
     
-    ; First show available flights
     call DisplayAvailableFlights
     
-    ; Check if we can add more tickets
     mov eax, ticketCount
     cmp eax, MAX_TICKETS
     jae TicketLimitReached
     
-    ; Get flight number to book
     mov edx, OFFSET promptFlightNum
     call WriteString
     mov edx, OFFSET tempBuffer
     mov ecx, SIZEOF tempBuffer
     call ReadString
     
-    ; Find the flight
     call FindFlightByNumber
     cmp eax, -1
-    ; je FlightNotFoundForBooking ; Original line 537 - Jump too far
-    jne L_BookTicket_Continue_537  ; If flight found (eax != -1), continue
-    jmp FlightNotFoundForBooking ; If flight not found (eax == -1), jump to error handling
+    jne L_BookTicket_Continue_537
+    jmp FlightNotFoundForBooking
 L_BookTicket_Continue_537:
     
-    ; Check if seats available
     mov ebx, eax
     cmp availableSeats[ebx*4], 0
     je NoSeatsAvailable
     
-    ; Get customer details
     mov edx, OFFSET promptName
     call WriteString
     mov eax, ticketCount
@@ -733,13 +1258,11 @@ L_BookTicket_Continue_537:
     mov ecx, 50
     call ReadString
     
-    ; Set ticket details
     mov eax, nextTicketID
     mov ebx, ticketCount
     mov ticketIDs[ebx*4], eax
     inc nextTicketID
     
-    ; Copy flight number to ticket
     mov esi, OFFSET tempBuffer
     mov eax, ticketCount
     imul eax, eax, 10
@@ -748,23 +1271,19 @@ L_BookTicket_Continue_537:
     mov ecx, 10
     rep movsb
     
-    ; Set ticket price and status
-    call FindFlightByNumber ; Re-find flight to get its index for price (tempBuffer still holds flight num)
-    mov ebx, eax ; ebx = flight index
+    call FindFlightByNumber
+    mov ebx, eax
     mov eax, flightPrices[ebx*4]
     mov ebx, ticketCount
     mov ticketPrices[ebx*4], eax
     mov ticketActive[ebx], 1
     
-    ; Decrease available seats
-    call FindFlightByNumber ; Re-find flight again for seat decrement
-    mov ebx, eax ; ebx = flight index
+    call FindFlightByNumber
+    mov ebx, eax
     dec availableSeats[ebx*4]
     
-    ; Increment ticket count
     inc ticketCount
     
-    ; Show success message with ticket ID
     mov edx, OFFSET msgTicketBooked
     call WriteString
     mov eax, ticketCount
@@ -803,7 +1322,7 @@ BookTicketEnd:
     pop eax
     ret
 BookFlightTicket ENDP
-; Find flight by number - returns index in EAX, -1 if not found
+
 FindFlightByNumber PROC
     push ebx
     push ecx
@@ -813,50 +1332,40 @@ FindFlightByNumber PROC
     
     mov ecx, flightCount
     cmp ecx, 0
-    je FlightNotFoundInSearch_DirectExit ; Renamed to avoid conflict if it was the target
+    je FlightNotFoundInSearch_DirectExit
     
-    mov esi, 0 ; Initialize index for flight iteration
+    mov esi, 0
     
 FindFlightLoop:
-    ; Check if flight is active
     cmp flightActive[esi], 1
     jne NextFlightSearch
     
-    ; Compare flight numbers
-    ; Need to preserve esi (loop counter) if it's used by repe cmpsb indirectly
-    ; Here, edi will point to flightNumbers[esi*10] and temp_esi to tempBuffer
-    push esi ; Save main loop index
-    mov eax, esi ; current flight index
+    push esi
+    mov eax, esi
     mov ebx, 10
     mul ebx
     add eax, OFFSET flightNumbers
-    mov edi, eax            ; edi points to flightNumbers[current_flight_index]
-    
-    mov esi, OFFSET tempBuffer ; esi points to user input flight number
-    
-    push ecx ; Save outer loop counter for flightCount
-    mov ecx, 10 ; Length of flight number string
+    mov edi, eax
+    mov esi, OFFSET tempBuffer
+    push ecx
+    mov ecx, 10
     repe cmpsb
-    pop ecx ; Restore outer loop counter
-    
-    pop esi ; Restore main loop index
-
-    je FlightFoundInSearch ; If cmpsb found a match (ZF=1)
+    pop ecx
+    pop esi
+    je FlightFoundInSearch
     
 NextFlightSearch:
     inc esi
-    mov eax, esi ; Prepare for comparison with flightCount
+    mov eax, esi
     cmp eax, flightCount
     jl FindFlightLoop
 
-FlightNotFoundInSearch_DirectExit: ; Label for when flightCount is 0 or loop finishes
+FlightNotFoundInSearch_DirectExit:
     mov eax, -1
     jmp FindFlightEnd
 
 FlightFoundInSearch:
-    mov eax, esi  ; Return the index (which is in esi)
-    ; jmp FindFlightEnd ; This jump is implicit as it's the next line effectively
-
+    mov eax, esi
 FindFlightEnd:
     pop edi
     pop esi
@@ -865,7 +1374,7 @@ FindFlightEnd:
     pop ebx
     ret
 FindFlightByNumber ENDP
-; View ticket history
+
 ViewTicketHistory PROC
     push eax
     push ebx
@@ -887,13 +1396,11 @@ ViewTicketLoop:
     cmp ticketActive[esi], 1
     jne SkipTicket
     
-    ; Display ticket ID
     mov eax, ticketIDs[esi*4]
     call WriteDec
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display flight number
     mov eax, esi
     mov ebx, 10
     mul ebx
@@ -903,7 +1410,6 @@ ViewTicketLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display customer name
     mov eax, esi
     mov ebx, 30
     mul ebx
@@ -913,7 +1419,6 @@ ViewTicketLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display phone
     mov eax, esi
     mov ebx, 15
     mul ebx
@@ -923,7 +1428,6 @@ ViewTicketLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display price
     mov edx, OFFSET dollar
     call WriteString
     mov eax, ticketPrices[esi*4]
@@ -953,7 +1457,6 @@ ViewTicketEnd:
     ret
 ViewTicketHistory ENDP
 
-; Cancel flight ticket
 CancelFlightTicket PROC
     push eax
     push ebx
@@ -966,25 +1469,21 @@ CancelFlightTicket PROC
     call ReadDec
     mov tempNumber, eax
     
-    ; Find ticket by ID
     mov ecx, ticketCount
     cmp ecx, 0
-    ; je TicketNotFoundForCancel ; Original line 650 - Jump too far
-    jne L_CancelTicket_Continue_650 ; If ticketCount > 0, proceed to search
-    jmp TicketNotFoundForCancel ; If ticketCount == 0, jump to not found
+    jne L_CancelTicket_Continue_650
+    jmp TicketNotFoundForCancel
 L_CancelTicket_Continue_650:
     
     mov esi, 0
     
-FindTicketLoop_Cancel: ; Renamed to avoid conflict
+FindTicketLoop_Cancel:
     mov eax, ticketIDs[esi*4]
     cmp eax, tempNumber
     je TicketFoundForCancel
     inc esi
-    loop FindTicketLoop_Cancel ; Use the new label
-    
-    ; If loop finishes, ticket not found, fall through or jmp to TicketNotFoundForCancel
-    jmp TicketNotFoundForCancel ; Explicit jump if loop finishes
+    loop FindTicketLoop_Cancel
+    jmp TicketNotFoundForCancel
 
 TicketNotFoundForCancel:
     mov edx, OFFSET msgTicketNotFound
@@ -993,34 +1492,29 @@ TicketNotFoundForCancel:
     jmp CancelTicketEnd
 
 TicketFoundForCancel:
-    ; Check if ticket is active
     cmp ticketActive[esi], 0
-    je TicketNotFoundForCancel ; This jump might also be too far, but not reported.
+    je TicketNotFoundForCancel
     
-    ; Mark ticket as canceled
     mov ticketActive[esi], 0
     
-    ; Increase available seats for the flight
-    ; Copy flight number from ticket to tempBuffer to use FindFlightByNumber
-    push edi ; Save edi
-    mov eax, esi ; current ticket index in esi
+    push edi
+    mov eax, esi
     imul eax, eax, 10
-    add eax, OFFSET ticketFlightNums ; eax points to ticketFlightNums[current_ticket_index]
-    
-    mov edi, OFFSET tempBuffer ; edi points to tempBuffer
-    push esi ; Save current ticket index (esi)
-    mov esi, eax ; esi now source for rep movsb
-    push ecx ; Save loop counter for FindTicketLoop_Cancel if any
-    mov ecx, 10 ; Length of flight number
+    add eax, OFFSET ticketFlightNums
+    mov edi, OFFSET tempBuffer
+    push esi
+    mov esi, eax
+    push ecx
+    mov ecx, 10
     rep movsb
     pop ecx
-    pop esi ; Restore current ticket index to esi
-    pop edi ; Restore edi
+    pop esi
+    pop edi
     
-    call FindFlightByNumber ; tempBuffer now has the flight number
+    call FindFlightByNumber
     cmp eax, -1
-    je TicketCancelSuccess ; If flight not found (e.g. deleted), just mark ticket cancelled
-    mov ebx, eax ; ebx = flight index
+    je TicketCancelSuccess
+    mov ebx, eax
     inc availableSeats[ebx*4]
     
 TicketCancelSuccess:
@@ -1037,7 +1531,6 @@ CancelTicketEnd:
     ret
 CancelFlightTicket ENDP
 
-; Search ticket by ID
 SearchTicketByID PROC
     push eax
     push ebx
@@ -1050,25 +1543,21 @@ SearchTicketByID PROC
     call ReadDec
     mov tempNumber, eax
     
-    ; Find ticket by ID
     mov ecx, ticketCount
     cmp ecx, 0
-    ; je TicketNotFoundForSearch ; Original line 921 - Jump too far
-    jne L_SearchTicket_Continue_921 ; If ticketCount > 0, proceed to search
-    jmp TicketNotFoundForSearch ; If ticketCount == 0, jump to not found
+    jne L_SearchTicket_Continue_921
+    jmp TicketNotFoundForSearch
 L_SearchTicket_Continue_921:
     
     mov esi, 0
     
-SearchTicketLoop_ByID: ; Renamed to avoid conflict
+SearchTicketLoop_ByID:
     mov eax, ticketIDs[esi*4]
     cmp eax, tempNumber
     je TicketFoundForSearch
     inc esi
-    loop SearchTicketLoop_ByID ; Use the new label
-    
-    ; If loop finishes, ticket not found, fall through or jmp to TicketNotFoundForSearch
-    jmp TicketNotFoundForSearch ; Explicit jump if loop finishes
+    loop SearchTicketLoop_ByID
+    jmp TicketNotFoundForSearch
 
 TicketNotFoundForSearch:
     mov edx, OFFSET msgTicketNotFound
@@ -1077,22 +1566,18 @@ TicketNotFoundForSearch:
     jmp SearchTicketEnd
 
 TicketFoundForSearch:
-    ; Check if ticket is active
     cmp ticketActive[esi], 0
-    je TicketNotFoundForSearch ; This jump might also be too far, but not reported.
+    je TicketNotFoundForSearch
     
-    ; Display ticket details
     call Clrscr
     mov edx, OFFSET headerTickets
     call WriteString
     
-    ; Display ticket ID
     mov eax, ticketIDs[esi*4]
     call WriteDec
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display flight number
     mov eax, esi
     mov ebx, 10
     mul ebx
@@ -1102,7 +1587,6 @@ TicketFoundForSearch:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display customer name
     mov eax, esi
     mov ebx, 30
     mul ebx
@@ -1112,7 +1596,6 @@ TicketFoundForSearch:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display phone
     mov eax, esi
     mov ebx, 15
     mul ebx
@@ -1122,7 +1605,6 @@ TicketFoundForSearch:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display price
     mov edx, OFFSET dollar
     call WriteString
     mov eax, ticketPrices[esi*4]
@@ -1141,7 +1623,6 @@ SearchTicketEnd:
     ret
 SearchTicketByID ENDP
 
-; File a complaint
 FileCustomerComplaint PROC
     push eax
     push ebx
@@ -1150,14 +1631,12 @@ FileCustomerComplaint PROC
     push esi
     push edi
     
-    ; Check if we can add more complaints
     mov eax, complaintCount
     cmp eax, MAX_COMPLAINTS
     jae ComplaintLimitReached
     
     call Clrscr
     
-    ; Get customer name
     mov edx, OFFSET promptName
     call WriteString
     mov eax, complaintCount
@@ -1167,7 +1646,6 @@ FileCustomerComplaint PROC
     mov ecx, 30
     call ReadString
     
-    ; Get complaint category
     mov edx, OFFSET promptComplaintCat
     call WriteString
     mov eax, complaintCount
@@ -1177,7 +1655,6 @@ FileCustomerComplaint PROC
     mov ecx, 20
     call ReadString
     
-    ; Get complaint details
     mov edx, OFFSET promptComplaintDet
     call WriteString
     mov eax, complaintCount
@@ -1187,28 +1664,24 @@ FileCustomerComplaint PROC
     mov ecx, 200
     call ReadString
     
-    ; Set complaint ID and status
     mov eax, nextComplaintID
     mov ebx, complaintCount
     mov complaintIDs[ebx*4], eax
     inc nextComplaintID
-    mov complaintStatus[ebx], 0  ; 0 = pending
+    mov complaintStatus[ebx], 0
     
-    ; Clear response
     mov eax, complaintCount
     imul eax, eax, 200
     add eax, OFFSET complaintResponses
     mov edi, eax
-    push ecx ; Save ecx if it's important before this, though ReadString usually sets it to bytes read
+    push ecx
     mov ecx, 200
     mov al, 0
     rep stosb
     pop ecx
     
-    ; Increment complaint count
     inc complaintCount
     
-    ; Show success message
     mov edx, OFFSET msgComplaintFiled
     call WriteString
     mov eax, complaintCount
@@ -1236,7 +1709,6 @@ FileComplaintEnd:
     ret
 FileCustomerComplaint ENDP
 
-; Display complaints (Admin function)
 DisplayComplaints PROC
     push eax
     push ebx
@@ -1255,13 +1727,11 @@ DisplayComplaints PROC
     mov esi, 0
     
 DisplayComplaintLoop:
-    ; Display complaint ID
     mov eax, complaintIDs[esi*4]
     call WriteDec
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display category
     mov eax, esi
     mov ebx, 20
     mul ebx
@@ -1271,17 +1741,15 @@ DisplayComplaintLoop:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display customer name
     mov eax, esi
     mov ebx, 30
-    mul ebx ; Corrected from imul ebx to mul ebx (assuming eax holds index esi)
+    mul ebx
     add eax, OFFSET complaintNames
     mov edx, eax
     call WriteString
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display status
     cmp complaintStatus[esi], 0
     je ShowPending
     mov edx, OFFSET statusResolved
@@ -1293,10 +1761,9 @@ ShowStatus:
     mov edx, OFFSET pipe
     call WriteString
     
-    ; Display details (truncated)
     mov eax, esi
     mov ebx, 200
-    mul ebx ; Corrected from imul ebx to mul ebx
+    mul ebx
     add eax, OFFSET complaintDetails
     mov edx, eax
     call WriteString
@@ -1324,7 +1791,6 @@ DisplayComplaintsEnd:
     ret
 DisplayComplaints ENDP
 
-; Respond to complaint (Admin function)
 RespondToComplaint PROC
     push eax
     push ebx
@@ -1337,7 +1803,6 @@ RespondToComplaint PROC
     call ReadDec
     mov tempNumber, eax
     
-    ; Find complaint by ID
     mov ecx, complaintCount
     cmp ecx, 0
     je FindComplaintNotFound
@@ -1350,27 +1815,25 @@ FindComplaintSearchLoop:
     je FindComplaintFound
     inc esi
     loop FindComplaintSearchLoop
-    jmp FindComplaintNotFound ; If loop finishes, not found
+    jmp FindComplaintNotFound
     
 FindComplaintNotFound:
-    mov edx, OFFSET msgNoComplaints ; Assuming this is the correct message for "complaint not found"
+    mov edx, OFFSET msgNoComplaints
     call WriteString
     call MyWaitMsg
     jmp RespondComplaintEnd
 
 FindComplaintFound:
-    ; Get response
     mov edx, OFFSET promptResponse
     call WriteString
     mov eax, esi
     mov ebx, 200
-    mul ebx ; Corrected from imul ebx to mul ebx
+    mul ebx
     add eax, OFFSET complaintResponses
     mov edx, eax
     mov ecx, 200
     call ReadString
     
-    ; Mark as resolved
     mov complaintStatus[esi], 1
     
     mov edx, OFFSET msgComplaintUpdated
@@ -1386,7 +1849,6 @@ RespondComplaintEnd:
     ret
 RespondToComplaint ENDP
 
-; Update flight details
 UpdateFlightDetails PROC
     push eax
     push ebx
@@ -1403,25 +1865,22 @@ UpdateFlightDetails PROC
     
     call FindFlightByNumber
     cmp eax, -1
-    ; je FlightNotFoundForUpdate ; Original line 1272 - Jump too far
-    jne L_UpdateFlight_Continue_1272 ; If flight found, continue
-    jmp FlightNotFoundForUpdate ; If not found, jump to error handling
+    jne L_UpdateFlight_Continue_1272
+    jmp FlightNotFoundForUpdate
 L_UpdateFlight_Continue_1272:
     
-    mov esi, eax  ; Store flight index
+    mov esi, eax
     
-    ; Update price
     mov edx, OFFSET promptPrice
     call WriteString
     call ReadDec
     mov flightPrices[esi*4], eax
     
-    ; Update departure time
     mov edx, OFFSET promptDepartTime
     call WriteString
     mov eax, esi
     mov ebx, 10
-    mul ebx ; Corrected from imul ebx to mul ebx
+    mul ebx
     add eax, OFFSET departureTimes
     mov edx, eax
     mov ecx, 10
@@ -1447,7 +1906,6 @@ UpdateFlightEnd:
     ret
 UpdateFlightDetails ENDP
 
-; Delete flight record
 DeleteFlightRecord PROC
     push eax
     push ebx
@@ -1465,7 +1923,6 @@ DeleteFlightRecord PROC
     cmp eax, -1
     je FlightNotFoundForDelete
     
-    ; Mark flight as inactive
     mov esi, eax
     mov flightActive[esi], 0
     
